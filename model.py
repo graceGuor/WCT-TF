@@ -10,7 +10,7 @@ from ops import pad_reflect, Conv2DReflect, torch_decay, wct_tf, wct_style_swap,
 from collections import namedtuple
 
 
-### Helpers ###
+### Helpers
 
 mse = tf.losses.mean_squared_error
 
@@ -25,12 +25,14 @@ EncoderDecoder = namedtuple('EncoderDecoder',
                              summary_op')
 
 
-### WCT Model Graph ###
+# WCT Model Graph
 
 class WCTModel(object):
     '''Model graph for Universal Style Transfer via Feature Transforms from https://arxiv.org/abs/1705.08086'''
 
-    def __init__(self, mode='train', relu_targets=['relu5_1','relu4_1','relu3_1','relu2_1','relu1_1'], vgg_path=None,  
+    def __init__(self, mode='train',
+                 relu_targets=['relu5_1', 'relu4_1','relu3_1','relu2_1','relu1_1'],
+                 vgg_path=None,
                  *args, **kwargs):
         '''
             Args:
@@ -40,10 +42,14 @@ class WCTModel(object):
         '''
         self.mode = mode
 
-        self.style_input = tf.placeholder_with_default(tf.constant([[[[0.,0.,0.]]]]), shape=(None, None, None, 3), name='style_img')
+        self.style_input = tf.placeholder_with_default(tf.constant([[[[0., 0., 0.]]]]),
+                                                       shape=(None, None, None, 3),
+                                                       name='style_img')
+        print('=' * 10, "self.style_input.name:", self.style_input.name, flush=True)
 
         self.alpha = tf.placeholder_with_default(1., shape=[], name='alpha')
-        
+        print('=' * 10, "self.alpha.name:", self.alpha.name, flush=True)
+
         # Style swap settings
         self.swap5 = tf.placeholder_with_default(tf.constant(False), shape=[])
         self.ss_alpha = tf.placeholder_with_default(.7, shape=[], name='ss_alpha')
@@ -53,12 +59,12 @@ class WCTModel(object):
         
         self.encoder_decoders = []
         
-        ### Build the graph ###
+        ### Build the graph
         
         # Load shared VGG model up to deepest target layer
         with tf.name_scope('vgg_encoder'):
             deepest_target = sorted(relu_targets)[-1]
-            print('Loading VGG up to layer',deepest_target)
+            print('Loading VGG up to layer', deepest_target)
             self.vgg_model = vgg_from_t7(vgg_path, target_layer=deepest_target)
             print(self.vgg_model.summary())
 
@@ -70,13 +76,14 @@ class WCTModel(object):
                 style_encoding_layers = [self.vgg_model.get_layer(relu).output for relu in relu_targets]
                 style_encoder_model = Model(inputs=self.vgg_model.input, outputs=style_encoding_layers)
                 style_encodings = style_encoder_model(self.style_input)
+                # print('=' * 10, "self.style_encodings.name:", style_encodings.name, flush=True)
 
             if len(relu_targets) == 1:
                 style_encodings = [style_encodings]
 
         # Build enc/decs for each target relu and hook the out of each decoder up to subsequent encoder input
         for i, (relu, style_encoded) in enumerate(zip(relu_targets, style_encodings)):
-            print('Building encoder/decoder for relu target',relu)
+            print('Building encoder/decoder for relu target', relu)
             
             if i == 0:
                 # Input tensor will be a placeholder for the first encoder/decoder
@@ -90,9 +97,13 @@ class WCTModel(object):
             self.encoder_decoders.append(enc_dec)
 
         # Hooks for placeholder input for first encoder and final output from last decoder
-        self.content_input  = self.encoder_decoders[0].content_input
+        self.content_input = self.encoder_decoders[0].content_input
+        print('=' * 10, "self.content_input.name:", self.content_input.name, flush=True)
         self.decoded_output = self.encoder_decoders[-1].decoded
-        
+        print('=' * 10, "self.decoded_output.name:", self.decoded_output.name, flush=True)
+        for item in self.encoder_decoders:
+            print('=' * 10, "self.decoded_outputs.name:", item.decoded.name, flush=True)
+
     def build_model(self, 
                     relu_target,
                     input_tensor,
@@ -122,11 +133,13 @@ class WCTModel(object):
         '''
         with tf.name_scope('encoder_decoder_'+relu_target):
 
-            ### Build encoder for reluX_1
+            # Build encoder for reluX_1
             with tf.name_scope('content_encoder_'+relu_target):
                 if input_tensor is None:  
                     # This is the first level encoder that takes original content imgs
-                    content_imgs = tf.placeholder_with_default(tf.constant([[[[0.,0.,0.]]]]), shape=(None, None, None, 3), name='content_imgs')
+                    content_imgs = tf.placeholder_with_default(tf.constant([[[[0., 0., 0.]]]]),
+                                                               shape=(None, None, None, 3),
+                                                               name='content_imgs')
                 else:                     
                     # This is an intermediate-level encoder that takes output tensor from previous level as input
                     content_imgs = input_tensor  
@@ -138,45 +151,50 @@ class WCTModel(object):
                 # Setup content layer encodings for content images
                 content_encoded = content_encoder_model(content_imgs)
  
-            ### Build style encoder & WCT if test mode
+            # Build style encoder & WCT if test mode
             if self.mode != 'train':                
                 with tf.name_scope('wct_'+relu_target):
                     if relu_target == 'relu5_1':
                         # Apply style swap on relu5_1 encodings if self.swap5 flag is set
                         # Use AdaIN as transfer op instead of WCT if self.use_adain is set
                         # Otherwise perform WCT
-                        decoder_input = tf.case([(self.swap5, lambda: wct_style_swap(content_encoded,
-                                                                                    style_encoded_tensor,
-                                                                                    self.ss_alpha,
-                                                                                    ss_patch_size, 
-                                                                                    ss_stride)),
-                                                (self.use_adain, lambda: adain(content_encoded, style_encoded_tensor, self.alpha))],
-                                                default=lambda: wct_tf(content_encoded, style_encoded_tensor, self.alpha))
+                        decoder_input = tf.case([(self.swap5,
+                                                  lambda: wct_style_swap(content_encoded,
+                                                                         style_encoded_tensor,
+                                                                         self.ss_alpha,
+                                                                         ss_patch_size,
+                                                                         ss_stride)),
+                                                 (self.use_adain, lambda: adain(content_encoded,
+                                                                                style_encoded_tensor,
+                                                                                self.alpha))],
+                                                default=lambda: wct_tf(content_encoded,
+                                                                       style_encoded_tensor,
+                                                                       self.alpha))
                     else:
                         decoder_input = tf.cond(self.use_adain, 
                                                 lambda: adain(content_encoded, style_encoded_tensor, self.alpha),
                                                 lambda: wct_tf(content_encoded, style_encoded_tensor, self.alpha))
 
-                    
-            else: # In train mode we're trying to reconstruct from the encoding, so pass along unchanged
+            else:  # In train mode we're trying to reconstruct from the encoding, so pass along unchanged
                 decoder_input = content_encoded
 
-            ### Build decoder
+            # Build decoder
             with tf.name_scope('decoder_'+relu_target):
                 n_channels = content_encoded.get_shape()[-1].value
                 decoder_model = self.build_decoder(input_shape=(None, None, n_channels), relu_target=relu_target)
 
                 # Wrap the decoder_input tensor so that it has the proper shape for decoder_model
-                decoder_input_wrapped = tf.placeholder_with_default(decoder_input, shape=[None,None,None,n_channels])
+                decoder_input_wrapped = tf.placeholder_with_default(decoder_input, shape=[None, None, None, n_channels])
+                print("default placeholder name " + relu_target, decoder_input_wrapped.name)
 
                 # Reconstruct/decode from encoding
-                decoded = decoder_model(Lambda(lambda x: x)(decoder_input_wrapped)) # Lambda converts TF tensor to Keras
+                decoded = decoder_model(Lambda(lambda x: x)(decoder_input_wrapped))  # Lambda converts TF tensor to Keras
 
             # Content layer encoding for stylized out
             decoded_encoded = content_encoder_model(decoded)
 
         if self.mode == 'train':  # Train & summary ops only needed for training phase
-            ### Losses
+            # Losses
             with tf.name_scope('losses_'+relu_target):
                 # Feature loss between encodings of original & reconstructed
                 feature_loss = feature_weight * mse(decoded_encoded, content_encoded)
@@ -192,10 +210,11 @@ class WCTModel(object):
 
                 total_loss = feature_loss + pixel_loss + tv_loss
 
-            ### Training ops
+            # Training ops
             with tf.name_scope('train_'+relu_target):
                 global_step = tf.Variable(0, name='global_step_train', trainable=False)
-                # self.learning_rate = tf.train.exponential_decay(learning_rate, self.global_step, 100, 0.96, staircase=False)
+                # self.learning_rate = tf.train.exponential_decay(
+                # learning_rate, self.global_step, 100, 0.96, staircase=False)
                 learning_rate = torch_decay(learning_rate, global_step, lr_decay)
                 d_optimizer = tf.train.AdamOptimizer(learning_rate, beta1=0.9, beta2=0.999)
 
@@ -204,7 +223,7 @@ class WCTModel(object):
 
                 train_op = d_optimizer.minimize(total_loss, var_list=d_vars, global_step=global_step)
 
-            ### Loss & image summaries
+            # Loss & image summaries
             with tf.name_scope('summary_'+relu_target):
                 feature_loss_summary = tf.summary.scalar('feature_loss', feature_loss)
                 pixel_loss_summary = tf.summary.scalar('pixel_loss', pixel_loss)
@@ -249,7 +268,7 @@ class WCTModel(object):
                 input_shape: Tuple of input tensor shape, needed for channel dimension
                 relu_target: Layer of VGG to decode from
         '''
-        decoder_num = dict(zip(['relu1_1', 'relu2_1', 'relu3_1', 'relu4_1', 'relu5_1'], range(1,6)))[relu_target]
+        decoder_num = dict(zip(['relu1_1', 'relu2_1', 'relu3_1', 'relu4_1', 'relu5_1'], range(1, 6)))[relu_target]
 
         # Dict specifying the layers for each decoder level. relu5_1 is the deepest decoder and will contain all layers
         decoder_archs = {
@@ -288,14 +307,24 @@ class WCTModel(object):
                 layer_name = '{}_{}'.format(relu_target, count)
 
                 if layer_tup[0] == Conv2DReflect:
-                    x = Conv2DReflect(layer_name, filters=layer_tup[1], kernel_size=3, padding='valid', activation='relu', name=layer_name)(x)
+                    x = Conv2DReflect(layer_name,
+                                      filters=layer_tup[1],
+                                      kernel_size=3,
+                                      padding='valid',
+                                      activation='relu',
+                                      name=layer_name)(x)
                 elif layer_tup[0] == UpSampling2D:
                     x = UpSampling2D(name=layer_name)(x)
                 
                 count += 1
 
         layer_name = '{}_{}'.format(relu_target, count) 
-        output = Conv2DReflect(layer_name, filters=3, kernel_size=3, padding='valid', activation=None, name=layer_name)(x)  # 256x256 / 64->3
+        output = Conv2DReflect(layer_name,
+                               filters=3,
+                               kernel_size=3,
+                               padding='valid',
+                               activation=None,
+                               name=layer_name)(x)  # 256x256 / 64->3
         
         decoder_model = Model(code, output, name='decoder_model_'+relu_target)
         

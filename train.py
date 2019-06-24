@@ -89,7 +89,7 @@ def batch_gen(folder, batch_shape):
 
 
 def train():
-    batch_shape = (args.batch_size,256,256,3)
+    batch_shape = (args.batch_size, 256, 256, 3)
 
     with tf.Graph().as_default():
         tf.logging.set_verbosity(tf.logging.INFO)
@@ -129,7 +129,7 @@ def train():
         saver = tf.train.Saver(max_to_keep=args.max_to_keep)
 
         config = tf.ConfigProto()
-        config.gpu_options.allow_growth=True
+        config.gpu_options.allow_growth = True
         with tf.Session(config=config) as sess:
             enqueue_thread = threading.Thread(target=enqueue, args=[sess])
             enqueue_thread.isDaemon()
@@ -137,13 +137,13 @@ def train():
             coord = tf.train.Coordinator()
             threads = tf.train.start_queue_runners(coord=coord, sess=sess)
 
-            log_path = args.log_path if args.log_path is not None else os.path.join(args.checkpoint,'log')
+            log_path = args.log_path if args.log_path is not None else os.path.join(args.checkpoint, 'log')
             summary_writer = tf.summary.FileWriter(log_path, sess.graph)
 
             sess.run(tf.global_variables_initializer())
  
             def load_latest():
-                if os.path.exists(os.path.join(args.checkpoint,'checkpoint')):
+                if os.path.exists(os.path.join(args.checkpoint, 'checkpoint')):
                     print("Restoring checkpoint")
                     saver.restore(sess, tf.train.latest_checkpoint(args.checkpoint))
             load_latest()
@@ -163,7 +163,7 @@ def train():
                     'tv_loss':      model.tv_loss
                 }
 
-                feed_dict = { model.content_input: content_batch }
+                feed_dict = {model.content_input: content_batch}
 
                 try:
                     results = sess.run(fetches, feed_dict=feed_dict)
@@ -176,7 +176,7 @@ def train():
                 ### Run a val batch and log the summaries
                 if iteration % args.summary_iter == 0:
                     val_batch = sess.run(val_batch_op)
-                    summary = sess.run(model.summary_op, feed_dict={ model.content_input: val_batch })
+                    summary = sess.run(model.summary_op, feed_dict={model.content_input: val_batch})
                     summary_writer.add_summary(summary, results['global_step'])
 
                 ### Save checkpoint

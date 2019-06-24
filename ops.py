@@ -14,6 +14,7 @@ def pad_reflect(x, padding=1):
       x, [[0, 0], [padding, padding], [padding, padding], [0, 0]],
       mode='REFLECT')
 
+
 def Conv2DReflect(lambda_name, *args, **kwargs):
     '''Wrap Keras Conv2D with reflect padding'''
     return Lambda(lambda x: Conv2D(*args, **kwargs)(pad_reflect(x)), name=lambda_name)
@@ -70,11 +71,11 @@ def wct_tf(content, style, alpha, eps=1e-8):
 
     # Whiten content feature
     Dc = tf.diag(tf.pow(Sc[:k_c], -0.5))
-    fc_hat = tf.matmul(tf.matmul(tf.matmul(Uc[:,:k_c], Dc), Uc[:,:k_c], transpose_b=True), fc)
+    fc_hat = tf.matmul(tf.matmul(tf.matmul(Uc[:, :k_c], Dc), Uc[:, :k_c], transpose_b=True), fc)
 
     # Color content with style
     Ds = tf.diag(tf.pow(Ss[:k_s], 0.5))
-    fcs_hat = tf.matmul(tf.matmul(tf.matmul(Us[:,:k_s], Ds), Us[:,:k_s], transpose_b=True), fc_hat)
+    fcs_hat = tf.matmul(tf.matmul(tf.matmul(Us[:, :k_s], Ds), Us[:, :k_s], transpose_b=True), fc_hat)
 
     # Re-center with mean of style
     fcs_hat = fcs_hat + ms
@@ -83,11 +84,12 @@ def wct_tf(content, style, alpha, eps=1e-8):
     blended = alpha * fcs_hat + (1 - alpha) * (fc + mc)
 
     # CxH*W -> CxHxW
-    blended = tf.reshape(blended, (Cc,Hc,Wc))
+    blended = tf.reshape(blended, (Cc, Hc, Wc))
     # CxHxW -> 1xHxWxC
-    blended = tf.expand_dims(tf.transpose(blended, (1,2,0)), 0)
+    blended = tf.expand_dims(tf.transpose(blended, (1, 2, 0)), 0)
 
     return blended
+
 
 def wct_np(content, style, alpha=0.6, eps=1e-5):
     '''Perform Whiten-Color Transform on feature maps using numpy

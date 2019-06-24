@@ -5,6 +5,7 @@ from keras.models import Model
 from keras.layers import Input, Conv2D, UpSampling2D, Activation, Lambda, MaxPooling2D
 from ops import pad_reflect
 import torchfile
+import os
 
 
 def vgg_from_t7(t7_file, target_layer=None):
@@ -19,7 +20,7 @@ def vgg_from_t7(t7_file, target_layer=None):
 
     x = inp
     
-    for idx,module in enumerate(t7.modules):
+    for idx, module in enumerate(t7.modules):
         name = module.name.decode() if module.name is not None else None
         
         if idx == 0:
@@ -51,5 +52,32 @@ def vgg_from_t7(t7_file, target_layer=None):
     
     # Hook it up
     model = Model(inputs=inp, outputs=x)
+    print("_" *10, x.name)
 
     return model
+
+
+if __name__=="__main__":
+    relu_targets = ['relu4_1']
+    # relu_targets = ['relu5_1', 'relu4_1', 'relu3_1', 'relu2_1', 'relu1_1']
+    checkpoint_path = "models/vgg"
+
+    with tf.Graph().as_default():
+        vgg = vgg_from_t7('models/vgg_normalised.t7', target_layer='relu4_1')
+        style_input = tf.placeholder_with_default(tf.constant([[[[0., 0., 0.]]]]),
+                                                  shape=(None, None, None, 3),
+                                                  name='style_img')
+        # with tf.name_scope('style_encoder'):
+        #     style_encoding_layers = [vgg.get_layer(relu).output for relu in relu_targets]
+        #     style_encoder_model = Model(inputs=vgg.input, outputs=style_encoding_layers)
+        #     style_encodings = style_encoder_model(style_input)
+        #     print("=" * 10, "style_encodings.name:", style_encodings.name, style_encodings.shape)
+
+        with tf.Session() as sess:
+            for n in tf.get_default_graph().as_graph_def().node:
+                print("---" * 2, n.name)
+            sess.run(tf.global_variables_initializer())
+            # sess.run(style_encodings, feed_dict=style_input)
+            saver = tf.train.Saver()
+            save_path = saver.save(sess, os.path.join(checkpoint_path, 'model.ckpt'))
+            print("Model saved in file: %s" % save_path)

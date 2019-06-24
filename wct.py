@@ -91,7 +91,7 @@ class WCT(object):
 
         # Make sure shape is correct and pixels are in [0,1]
         content = self.preprocess(content)
-        style   = self.preprocess(style)
+        style = self.preprocess(style)
 
         s = time.time()
         stylized = self.sess.run(self.decoded_output, feed_dict={
@@ -101,6 +101,6 @@ class WCT(object):
                                                           self.model.swap5: swap5,
                                                           self.model.ss_alpha: ss_alpha,
                                                           self.model.use_adain: adain})
-        print("Stylized in:",time.time() - s)
+        print("Stylized in:", time.time() - s)
 
         return self.postprocess(stylized[0])

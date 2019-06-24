@@ -44,29 +44,29 @@ def main():
 
     # Load the WCT model
     wct_model = WCT(checkpoints=args.checkpoints, 
-                                relu_targets=args.relu_targets,
-                                vgg_path=args.vgg_path, 
-                                device=args.device,
-                                ss_patch_size=args.ss_patch_size, 
-                                ss_stride=args.ss_stride)
+                    relu_targets=args.relu_targets,
+                    vgg_path=args.vgg_path,
+                    device=args.device,
+                    ss_patch_size=args.ss_patch_size,
+                    ss_stride=args.ss_stride)
 
     # Get content & style full paths
     if os.path.isdir(args.content_path):
         content_files = get_files(args.content_path)
-    else: # Single image file
+    else:  # Single image file
         content_files = [args.content_path]
     if os.path.isdir(args.style_path):
         style_files = get_files(args.style_path)
         if args.random > 0:
             style_files = np.random.choice(style_files, args.random)
-    else: # Single image file
+    else:  # Single image file
         style_files = [args.style_path]
 
     os.makedirs(args.out_path, exist_ok=True)
 
     count = 0
 
-    ### Apply each style to each content image
+    # Apply each style to each content image
     for content_fullpath in content_files:
         content_prefix, content_ext = os.path.splitext(content_fullpath)
         content_prefix = os.path.basename(content_prefix)  # Extract filename prefix without ext
